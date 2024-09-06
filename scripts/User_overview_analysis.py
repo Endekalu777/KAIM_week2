@@ -22,36 +22,37 @@ class TelecomDataAnalysis:
         self.create_user_aggregates()
 
         print("\nMissing values after handling:")
-        print(self.df.isnull().sum())
+        display(self.df.isnull().sum())
 
     def handle_missing_values(self):
         # Time and duration data
-        self.df['Start'].interpolate(method='linear', inplace=True)
-        self.df['Start ms'].fillna(self.df['Start ms'].median(), inplace=True)
-        self.df['End'].interpolate(method='linear', inplace=True)
-        self.df['End ms'].fillna(self.df['End ms'].median(), inplace=True)
-        self.df['Dur. (ms)'].fillna(self.df['Dur. (ms)'].median(), inplace=True)
-        self.df['Activity Duration DL (ms)'].fillna(self.df['Activity Duration DL (ms)'].median(), inplace=True)
-        self.df['Activity Duration UL (ms)'].fillna(self.df['Activity Duration UL (ms)'].median(), inplace=True)
-        self.df['Dur. (ms).1'].fillna(self.df['Dur. (ms).1'].median(), inplace=True)
+        self.df.loc[:, 'Start'] = self.df['Start'].interpolate(method='linear')
+        self.df.loc[:, 'Start ms'] = self.df['Start ms'].fillna(self.df['Start ms'].median())
+        self.df.loc[:, 'End'] = self.df['End'].interpolate(method='linear')
+        self.df.loc[:, 'End ms'] = self.df['End ms'].fillna(self.df['End ms'].median())
+        self.df.loc[:, 'Dur. (ms)'] = self.df['Dur. (ms)'].fillna(self.df['Dur. (ms)'].median())
+        self.df.loc[:, 'Activity Duration DL (ms)'] = self.df['Activity Duration DL (ms)'].fillna(self.df['Activity Duration DL (ms)'].median())
+        self.df.loc[:, 'Activity Duration UL (ms)'] = self.df['Activity Duration UL (ms)'].fillna(self.df['Activity Duration UL (ms)'].median())
+        self.df.loc[:, 'Dur. (ms).1'] = self.df['Dur. (ms).1'].fillna(self.df['Dur. (ms).1'].median())
 
         # IMSI and MSISDN/Number
-        self.df['IMSI'].fillna(self.df['IMSI'].median(), inplace=True)
-        self.df['MSISDN/Number'].fillna(self.df['MSISDN/Number'].mode()[0], inplace=True)
+        self.df.loc[:, 'IMSI'] = self.df['IMSI'].fillna(self.df['IMSI'].median())
+        self.df.loc[:, 'MSISDN/Number'] = self.df['MSISDN/Number'].fillna(self.df['MSISDN/Number'].mode()[0])
+        self.df.dropna(subset=['Bearer Id'], inplace=True)
 
         # IMEI and Last Location Name
-        self.df['IMEI'].fillna(self.df['IMEI'].mode()[0], inplace=True)
-        self.df['Last Location Name'].fillna(self.df['Last Location Name'].mode()[0], inplace=True)
+        self.df.loc[:, 'IMEI'] = self.df['IMEI'].fillna(self.df['IMEI'].mode()[0])
+        self.df.loc[:, 'Last Location Name'] = self.df['Last Location Name'].fillna(self.df['Last Location Name'].mode()[0])
 
         # RTT and Throughput data
-        self.df['Avg RTT DL (ms)'].fillna(self.df['Avg RTT DL (ms)'].median(), inplace=True)
-        self.df['Avg RTT UL (ms)'].fillna(self.df['Avg RTT UL (ms)'].median(), inplace=True)
-        self.df['Avg Bearer TP DL (kbps)'].fillna(self.df['Avg Bearer TP DL (kbps)'].median(), inplace=True)
-        self.df['Avg Bearer TP UL (kbps)'].fillna(self.df['Avg Bearer TP UL (kbps)'].median(), inplace=True)
+        self.df.loc[:, 'Avg RTT DL (ms)'] = self.df['Avg RTT DL (ms)'].fillna(self.df['Avg RTT DL (ms)'].median())
+        self.df.loc[:, 'Avg RTT UL (ms)'] = self.df['Avg RTT UL (ms)'].fillna(self.df['Avg RTT UL (ms)'].median())
+        self.df.loc[:, 'Avg Bearer TP DL (kbps)'] = self.df['Avg Bearer TP DL (kbps)'].fillna(self.df['Avg Bearer TP DL (kbps)'].median())
+        self.df.loc[:, 'Avg Bearer TP UL (kbps)'] = self.df['Avg Bearer TP UL (kbps)'].fillna(self.df['Avg Bearer TP UL (kbps)'].median())
 
         # TCP Retransmission Volumes
-        self.df['TCP DL Retrans. Vol (Bytes)'].fillna(self.df['TCP DL Retrans. Vol (Bytes)'].median(), inplace=True)
-        self.df['TCP UL Retrans. Vol (Bytes)'].fillna(self.df['TCP UL Retrans. Vol (Bytes)'].median(), inplace=True)
+        self.df.loc[:, 'TCP DL Retrans. Vol (Bytes)'] = self.df['TCP DL Retrans. Vol (Bytes)'].fillna(self.df['TCP DL Retrans. Vol (Bytes)'].median())
+        self.df.loc[:, 'TCP UL Retrans. Vol (Bytes)'] = self.df['TCP UL Retrans. Vol (Bytes)'].fillna(self.df['TCP UL Retrans. Vol (Bytes)'].median())
 
         # Percentage data
         percent_fields = [
@@ -59,11 +60,11 @@ class TelecomDataAnalysis:
             'UL TP < 10 Kbps (%)', '10 Kbps < UL TP < 50 Kbps (%)', '50 Kbps < UL TP < 300 Kbps (%)', 'UL TP > 300 Kbps (%)'
         ]
         for field in percent_fields:
-            self.df[field].fillna(self.df[field].mean(), inplace=True)
+            self.df.loc[:, field] = self.df[field].fillna(self.df[field].mean())
 
         # HTTP DL and UL data
-        self.df['HTTP DL (Bytes)'].fillna(self.df['HTTP DL (Bytes)'].median(), inplace=True)
-        self.df['HTTP UL (Bytes)'].fillna(self.df['HTTP UL (Bytes)'].median(), inplace=True)
+        self.df.loc[:, 'HTTP DL (Bytes)'] = self.df['HTTP DL (Bytes)'].fillna(self.df['HTTP DL (Bytes)'].median())
+        self.df.loc[:, 'HTTP UL (Bytes)'] = self.df['HTTP UL (Bytes)'].fillna(self.df['HTTP UL (Bytes)'].median())
 
         # Handset information
         self.df.dropna(subset=['Handset Manufacturer', 'Handset Type'], inplace=True)
@@ -75,11 +76,11 @@ class TelecomDataAnalysis:
             'Nb of sec with Vol DL < 6250B', 'Nb of sec with Vol UL < 1250B'
         ]
         for field in nb_sec_fields:
-            self.df[field].fillna(self.df[field].median(), inplace=True)
+            self.df.loc[:, field] = self.df[field].fillna(self.df[field].median())
 
         # Total Bytes data
-        self.df['Total UL (Bytes)'].fillna(self.df['Total UL (Bytes)'].median(), inplace=True)
-        self.df['Total DL (Bytes)'].fillna(self.df['Total DL (Bytes)'].median(), inplace=True)
+        self.df.loc[:, 'Total UL (Bytes)'] = self.df['Total UL (Bytes)'].fillna(self.df['Total UL (Bytes)'].median())
+        self.df.loc[:, 'Total DL (Bytes)'] = self.df['Total DL (Bytes)'].fillna(self.df['Total DL (Bytes)'].median())
 
     def detect_handle_outliers(self):
         numeric_columns = self.df.select_dtypes(include=[np.number]).columns
@@ -134,19 +135,19 @@ class TelecomDataAnalysis:
 
     def analyze_top_users(self):
         print("Top 10 users by Total Data:")
-        print(self.user_aggregates.nlargest(10, 'Total Data (MB)')[['MSISDN/Number', 'Total Data (MB)']])
+        display(self.user_aggregates.nlargest(10, 'Total Data (MB)')[['MSISDN/Number', 'Total Data (MB)']])
 
         print("\nTop 10 users by Session Count:")
-        print(self.user_aggregates.nlargest(10, 'Session Count')[['MSISDN/Number', 'Session Count']])
+        display(self.user_aggregates.nlargest(10, 'Session Count')[['MSISDN/Number', 'Session Count']])
 
         print("\nTop 10 users by Total Duration:")
-        print(self.user_aggregates.nlargest(10, 'Total Duration (min)')[['MSISDN/Number', 'Total Duration (min)']])
+        display(self.user_aggregates.nlargest(10, 'Total Duration (min)')[['MSISDN/Number', 'Total Duration (min)']])
 
     def analyze_user_engagement(self):
         engagement_metrics = ['Total Data (MB)', 'Session Count', 'Total Duration (min)']
         
         print("User Engagement Statistics:")
-        print(self.user_aggregates[engagement_metrics].describe())
+        display(self.user_aggregates[engagement_metrics].describe())
 
         plt.figure(figsize=(15, 5))
         for i, metric in enumerate(engagement_metrics, 1):
@@ -163,7 +164,7 @@ class TelecomDataAnalysis:
         app_usage = self.user_aggregates[app_columns].sum().sort_values(ascending=False)
 
         print("Application Usage Statistics:")
-        print(app_usage)
+        display(app_usage)
 
         plt.figure(figsize=(12, 6))
         app_usage.plot(kind='bar')

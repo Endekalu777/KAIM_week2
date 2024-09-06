@@ -211,7 +211,7 @@ class TelecomDataAnalysis:
         return self.df.dtypes
 
     def segment_users(self):
-        self.user_aggregates['Decile'] = pd.qcut(self.user_aggregates['Total Duration (min)'], q=10, labels=False)
+        self.user_aggregates['Decile'] = pd.qcut(self.user_aggregates['Total Duration (min)'], q=5, labels=False)
         return self.user_aggregates.groupby('Decile')['Total Data (MB)'].sum()
 
     def basic_metrics(self):
@@ -281,6 +281,7 @@ class TelecomDataAnalysis:
         
         for app in apps:
             corr_data[app] = self.df[f'{app} DL (Bytes)'] + self.df[f'{app} UL (Bytes)']
+            
         correlation_matrix = corr_data.corr()
         sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
         plt.show()

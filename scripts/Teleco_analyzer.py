@@ -5,6 +5,7 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import cdist
+from IPython.display import display
 
 class TelecomAnalyzer:
     def __init__(self, df):
@@ -38,11 +39,11 @@ class TelecomAnalyzer:
 
     def analyze_top_users(self):
         print("Top 10 customers by session frequency:")
-        print(self.customer_metrics.nlargest(10, 'session_frequency'))
+        display(self.customer_metrics.nlargest(10, 'session_frequency'))
         print("\nTop 10 customers by total duration:")
-        print(self.customer_metrics.nlargest(10, 'total_duration'))
+        display(self.customer_metrics.nlargest(10, 'total_duration'))
         print("\nTop 10 customers by total traffic:")
-        print(self.customer_metrics.nlargest(10, 'total_traffic'))
+        display(self.customer_metrics.nlargest(10, 'total_traffic'))
 
     def analyze_user_engagement(self):
         plt.figure(figsize=(12, 4))
@@ -66,7 +67,7 @@ class TelecomAnalyzer:
         self.app_usage = self.df.groupby('MSISDN/Number')[app_columns].sum()
         app_usage_total = self.app_usage.sum(axis=1)
         print("\nTop 10 users by total app usage:")
-        print(app_usage_total.nlargest(10))
+        display(app_usage_total.nlargest(10))
 
         app_totals = self.app_usage.sum()
         app_totals = app_totals.groupby(app_totals.index.str.split().str[0]).sum().sort_values(ascending=False)
@@ -103,7 +104,7 @@ class TelecomAnalyzer:
             'total_traffic': ['min', 'max', 'mean', 'sum']
         })
         print("\nCluster statistics:")
-        print(cluster_stats)
+        display(cluster_stats)
 
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
         self.customer_metrics.boxplot(column=['session_frequency', 'total_duration', 'total_traffic'], by='cluster', ax=axes)
@@ -128,15 +129,14 @@ class TelecomAnalyzer:
         plt.tight_layout()
         plt.show()
 
-        print("\nBased on the elbow plot, choose the optimal k value and interpret your findings.")
 
     def analyze_top_users_per_app(self):
-    app_columns = ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other']
-    for app in app_columns:
-        app_usage = self.df.groupby('MSISDN/Number')[[f'{app} DL (Bytes)', f'{app} UL (Bytes)']].sum()
-        app_usage['total'] = app_usage[f'{app} DL (Bytes)'] + app_usage[f'{app} UL (Bytes)']
-        print(f"\nTop 10 users for {app}:")
-        print(app_usage.nlargest(10, 'total'))
+        app_columns = ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other']
+        for app in app_columns:
+            app_usage = self.df.groupby('MSISDN/Number')[[f'{app} DL (Bytes)', f'{app} UL (Bytes)']].sum()
+            app_usage['total'] = app_usage[f'{app} DL (Bytes)'] + app_usage[f'{app} UL (Bytes)']
+            print(f"\nTop 10 users for {app}:")
+            display(app_usage.nlargest(10, 'total'))
 
     def run_analysis(self):
         self.preprocess_data()

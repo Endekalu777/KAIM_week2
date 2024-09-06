@@ -303,9 +303,6 @@ class TelecomDataAnalysis:
         print("\nAnalyzing app usage:")
         self.analyze_app_usage()
         
-        print("\nPerforming PCA:")
-        self.perform_pca()
-        
         print("\nTop 10 Handsets:")
         display(self.top_handsets())
         
@@ -330,10 +327,6 @@ class TelecomDataAnalysis:
         print("\nDispersion Parameters:")
         display(self.dispersion_parameters())
         
-        print("\nPlotting Histograms:")
-        fig = self.plot_histograms()
-        display(fig)
-        plt.close(fig)
         
         print("\nBivariate Analysis:")
         fig = self.bivariate_analysis()
@@ -346,6 +339,9 @@ class TelecomDataAnalysis:
 
         print("\nUnivariate Analysis:")
         self.univariate_analysis(['Total DL (MB)', 'Total UL (MB)', 'Total Data (MB)'])
+
+        print("\nPerforming PCA:")
+        self.perform_pca()
 
     
 

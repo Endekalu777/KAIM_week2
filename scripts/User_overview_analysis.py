@@ -1,28 +1,31 @@
-import numpy as np
 import pandas as pd
-from scipy.stats import zscore
-from dotenv import load_dotenv
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.decomposition import PCA
+from scipy.stats import zscore
 from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
+from IPython.display import display
 
-class DataProcessor:
+class TelecomDataAnalysis:
     def __init__(self, df):
         self.df = df
+        self.user_aggregates = None
 
-    def check_missing_values(self):
-        """Check for missing values in the DataFrame."""
-        self.df.head(5)
+    def preprocess_data(self):
+        print("Missing values before handling:")
+        print(self.df.isnull().sum())
 
-        print("Showing missing values")
+        self.handle_missing_values()
+        self.detect_handle_outliers()
+        self.create_user_aggregates()
 
+        print("\nMissing values after handling:")
         print(self.df.isnull().sum())
 
     def handle_missing_values(self):
-        """Handle missing values in the DataFrame by filling or dropping them appropriately."""
-        # Fill missing values for time and duration data
+        # Time and duration data
         self.df['Start'].interpolate(method='linear', inplace=True)
         self.df['Start ms'].fillna(self.df['Start ms'].median(), inplace=True)
         self.df['End'].interpolate(method='linear', inplace=True)
@@ -32,25 +35,25 @@ class DataProcessor:
         self.df['Activity Duration UL (ms)'].fillna(self.df['Activity Duration UL (ms)'].median(), inplace=True)
         self.df['Dur. (ms).1'].fillna(self.df['Dur. (ms).1'].median(), inplace=True)
 
-        # Fill missing values for IMSI and MSISDN/Number
+        # IMSI and MSISDN/Number
         self.df['IMSI'].fillna(self.df['IMSI'].median(), inplace=True)
-        self.df['MSISDN/Number'].fillna(self.df['MSISDN/Number'].mode()[0], inplace=True)  # Mode for categorical-like ID
+        self.df['MSISDN/Number'].fillna(self.df['MSISDN/Number'].mode()[0], inplace=True)
 
-        # Fill missing values for IMEI and Last Location Name
-        self.df['IMEI'].fillna(self.df['IMEI'].mode()[0], inplace=True)  # Mode for categorical-like ID
-        self.df['Last Location Name'].fillna(self.df['Last Location Name'].mode()[0], inplace=True)  # Mode for categorical-like location
+        # IMEI and Last Location Name
+        self.df['IMEI'].fillna(self.df['IMEI'].mode()[0], inplace=True)
+        self.df['Last Location Name'].fillna(self.df['Last Location Name'].mode()[0], inplace=True)
 
-        # Fill missing values for RTT and Throughput data
+        # RTT and Throughput data
         self.df['Avg RTT DL (ms)'].fillna(self.df['Avg RTT DL (ms)'].median(), inplace=True)
         self.df['Avg RTT UL (ms)'].fillna(self.df['Avg RTT UL (ms)'].median(), inplace=True)
         self.df['Avg Bearer TP DL (kbps)'].fillna(self.df['Avg Bearer TP DL (kbps)'].median(), inplace=True)
         self.df['Avg Bearer TP UL (kbps)'].fillna(self.df['Avg Bearer TP UL (kbps)'].median(), inplace=True)
 
-        # Fill missing values for TCP Retransmission Volumes
+        # TCP Retransmission Volumes
         self.df['TCP DL Retrans. Vol (Bytes)'].fillna(self.df['TCP DL Retrans. Vol (Bytes)'].median(), inplace=True)
         self.df['TCP UL Retrans. Vol (Bytes)'].fillna(self.df['TCP UL Retrans. Vol (Bytes)'].median(), inplace=True)
 
-        # Fill missing values for percentage data
+        # Percentage data
         percent_fields = [
             'DL TP < 50 Kbps (%)', '50 Kbps < DL TP < 250 Kbps (%)', '250 Kbps < DL TP < 1 Mbps (%)', 'DL TP > 1 Mbps (%)',
             'UL TP < 10 Kbps (%)', '10 Kbps < UL TP < 50 Kbps (%)', '50 Kbps < UL TP < 300 Kbps (%)', 'UL TP > 300 Kbps (%)'
@@ -58,15 +61,14 @@ class DataProcessor:
         for field in percent_fields:
             self.df[field].fillna(self.df[field].mean(), inplace=True)
 
-        # Handle HTTP DL and UL data
+        # HTTP DL and UL data
         self.df['HTTP DL (Bytes)'].fillna(self.df['HTTP DL (Bytes)'].median(), inplace=True)
         self.df['HTTP UL (Bytes)'].fillna(self.df['HTTP UL (Bytes)'].median(), inplace=True)
 
-        # Fill missing values for handset information
-        self.df.dropna(subset=['Handset Manufacturer'], inplace=True)
-        self.df.dropna(subset=['Handset Type'], inplace=True)
+        # Handset information
+        self.df.dropna(subset=['Handset Manufacturer', 'Handset Type'], inplace=True)
 
-        # Fill missing values for NB of sec data
+        # NB of sec data
         nb_sec_fields = [
             'Nb of sec with 125000B < Vol DL', 'Nb of sec with 1250B < Vol UL < 6250B', 'Nb of sec with 31250B < Vol DL < 125000B',
             'Nb of sec with 37500B < Vol UL', 'Nb of sec with 6250B < Vol DL < 31250B', 'Nb of sec with 6250B < Vol UL < 37500B',
@@ -75,86 +77,27 @@ class DataProcessor:
         for field in nb_sec_fields:
             self.df[field].fillna(self.df[field].median(), inplace=True)
 
-        # Fill missing values for Total Bytes data
+        # Total Bytes data
         self.df['Total UL (Bytes)'].fillna(self.df['Total UL (Bytes)'].median(), inplace=True)
         self.df['Total DL (Bytes)'].fillna(self.df['Total DL (Bytes)'].median(), inplace=True)
 
-        print("Missing values handled successfully.")
-        print(self.df.isnull().sum())
-        return self.df
-
-
-class OverviewAnalysis:
-    def __init__(self, df):
-        self.df = df
-
-    def top_handset_manufacturer(self):
-        """Identify the top handset manufacturers and their top 5 handsets."""
-        handset_usage = self.df['Handset Type'].value_counts()
-        top10_handsets = handset_usage.nlargest(10)
-
-        handset_manufacturer = self.df['Handset Manufacturer'].value_counts()
-        top3_manufacturers = handset_manufacturer.nlargest(3)
-
-        # Initialize dictionary to hold top 5 handsets per manufacturer
-        top_5_per_manufacturer = {}
-
-        # Iterate over top 3 manufacturers
-        for manufacturer in top3_manufacturers.index:
-            manufacturer_data = self.df[self.df['Handset Manufacturer'] == manufacturer]
-            handsets = manufacturer_data['Handset Type'].value_counts()
-            top_5_handsets = handsets.head(5)
-            top_5_per_manufacturer[manufacturer] = top_5_handsets
-
-        # Display top 5 handsets per manufacturer
-        for manufacturer, handsets in top_5_per_manufacturer.items():
-            print(f"Top 5 handsets for {manufacturer}:")
-            print(handsets)
-
-
-class Analysis():
-    def __init__(self, df):
-        self.df = df
-    
     def detect_handle_outliers(self):
-        # Apply Z-score
-        z_scores = np.abs(zscore(self.df.select_dtypes(include=[np.number])))  # Only for numeric columns
+        numeric_columns = self.df.select_dtypes(include=[np.number]).columns
+        z_scores = np.abs(zscore(self.df[numeric_columns]))
         outliers = (z_scores > 3)
+        
+        for col in numeric_columns:
+            self.df.loc[outliers[col], col] = self.df[col].mean()
 
-        # Replace outliers with the mean of that column
-        for col in self.df.select_dtypes(include=[np.number]).columns:
-            self.df.loc[outliers[
-                col], col] = self.df[col].mean()
-            
-        return self.df
-    
-    def top5_deciles(self):
-        self.df['Total Data (DL+UL) (Bytes)'] = self.df['Total DL (Bytes)'] + self.df['Total UL (Bytes)']
-        self.df['Total Duration'] = self.df['Activity Duration DL (ms)'] + self.df['Activity Duration UL (ms)']
-
-        # Segment users into deciles based on total duration
-        self.df['Decile Class'] = pd.qcut(self.df['Total Duration'], 10, labels=False) + 1
-        # Extract top 5 deciles (decile values 5-9)
-        top5_deciles = self.df[self.df['Decile Class'] >= 5]
-        return top5_deciles
-    
-    def metrics_dispersion_analysis(self):
-        metrics = self.df[['Total DL (Bytes)', 'Total UL (Bytes)', 'Total Data (DL+UL) (Bytes)']].agg(['mean', 'median', 'std', 'min', 'max'])
-        dispersion = self.df[['Total DL (Bytes)', 'Total UL (Bytes)', 'Total Data (DL+UL) (Bytes)']].agg(['mean', 'std', 'var', 'min', 'max'])
-        return metrics, dispersion
-
-class UserBehaviour:
-    def __init__(self, df):
-        self.df = df
-
-    def user_aggregates(self):
-        self.df['Total Data (DL+UL) (Bytes)'] = self.df['Total DL (Bytes)'] + self.df['Total UL (Bytes)']
-        # Group by 'IMSI' to aggregate per user
-        user_aggregates = self.df.groupby('IMSI').agg({
-            'Bearer Id': 'count', 
-            'Dur. (ms)': 'sum',    
-            'Total DL (Bytes)': 'sum',  
-            'Total UL (Bytes)': 'sum', 
+    def create_user_aggregates(self):
+        self.df['Total Data (Bytes)'] = self.df['Total DL (Bytes)'] + self.df['Total UL (Bytes)']
+        
+        self.user_aggregates = self.df.groupby('MSISDN/Number').agg({
+            'Bearer Id': 'count',
+            'Dur. (ms)': 'sum',
+            'Total Data (Bytes)': 'sum',
+            'Total DL (Bytes)': 'sum',
+            'Total UL (Bytes)': 'sum',
             'Social Media DL (Bytes)': 'sum',
             'Social Media UL (Bytes)': 'sum',
             'Google DL (Bytes)': 'sum',
@@ -168,107 +111,596 @@ class UserBehaviour:
             'Gaming DL (Bytes)': 'sum',
             'Gaming UL (Bytes)': 'sum',
             'Other DL (Bytes)': 'sum',
-            'Other UL (Bytes)': 'sum',
-            'Total Data (DL+UL) (Bytes)': 'sum'
+            'Other UL (Bytes)': 'sum'
         }).reset_index()
 
-        # Rename columns for clarity
-        user_aggregates.rename(columns={
-            'Bearer Id': 'Number of xDR Sessions',
-            'Dur. (ms)': 'Total Session Duration (ms)'
+        self.user_aggregates.rename(columns={
+            'Bearer Id': 'Session Count',
+            'Dur. (ms)': 'Total Duration (ms)'
         }, inplace=True)
 
-        # Calculate total data volume for each application
-        user_aggregates['Total Data Volume (Bytes)'] = user_aggregates[
-            ['Social Media DL (Bytes)', 'Social Media UL (Bytes)',
-            'Google DL (Bytes)', 'Google UL (Bytes)',
-            'Email DL (Bytes)', 'Email UL (Bytes)',
-            'Youtube DL (Bytes)', 'Youtube UL (Bytes)',
-            'Netflix DL (Bytes)', 'Netflix UL (Bytes)',
-            'Gaming DL (Bytes)', 'Gaming UL (Bytes)',
-            'Other DL (Bytes)', 'Other UL (Bytes)']
-        ].sum(axis=1)
-    
-        # Convert Durations from ms to seconds
-        user_aggregates['Total Session Duration (s)'] = user_aggregates['Total Session Duration (ms)'] / 1000
-        user_aggregates.drop('Total Session Duration (ms)', axis=1, inplace=True)
+        # Convert bytes to megabytes
+        bytes_columns = [col for col in self.user_aggregates.columns if 'Bytes' in col]
+        for col in bytes_columns:
+            new_col_name = col.replace('Bytes', 'MB')
+            self.user_aggregates[new_col_name] = self.user_aggregates[col] / (1024 * 1024)
+            self.user_aggregates.drop(col, axis=1, inplace=True)
 
-        # Convert Data Sizes from Bytes to Megabytes
-        bytes_to_mb = 1 / 1_048_576
-        size_columns = [
-            'Total DL (Bytes)', 'Total UL (Bytes)',
-            'Social Media DL (Bytes)', 'Social Media UL (Bytes)',
-            'Google DL (Bytes)', 'Google UL (Bytes)',
-            'Email DL (Bytes)', 'Email UL (Bytes)',
-            'Youtube DL (Bytes)', 'Youtube UL (Bytes)',
-            'Netflix DL (Bytes)', 'Netflix UL (Bytes)',
-            'Gaming DL (Bytes)', 'Gaming UL (Bytes)',
-            'Other DL (Bytes)', 'Other UL (Bytes)', 'Total Data Volume (Bytes)', 'Total Data (DL+UL) (Bytes)'
-        ]
+        # Convert duration to minutes
+        self.user_aggregates['Total Duration (min)'] = self.user_aggregates['Total Duration (ms)'] / (1000 * 60)
+        self.user_aggregates.drop('Total Duration (ms)', axis=1, inplace=True)
+        # Add Total Data (DL+UL) column
+        self.user_aggregates['Total Data (MB)'] = self.user_aggregates['Total DL (MB)'] + self.user_aggregates['Total UL (MB)']
 
-        # Convert bytes columns to megabytes
-        for col in size_columns:
-            user_aggregates[col.replace('Bytes', 'MB')] = user_aggregates[col] * bytes_to_mb
-            user_aggregates.drop(col, axis=1, inplace=True)
+    def analyze_top_users(self):
+        print("Top 10 users by Total Data:")
+        print(self.user_aggregates.nlargest(10, 'Total Data (MB)')[['MSISDN/Number', 'Total Data (MB)']])
 
-        return user_aggregates
+        print("\nTop 10 users by Session Count:")
+        print(self.user_aggregates.nlargest(10, 'Session Count')[['MSISDN/Number', 'Session Count']])
 
-    
-class plots():
-    def __init__(self, user_aggregates):
-        self.user_aggregates = user_aggregates
+        print("\nTop 10 users by Total Duration:")
+        print(self.user_aggregates.nlargest(10, 'Total Duration (min)')[['MSISDN/Number', 'Total Duration (min)']])
 
-    def univariate_plot(self):
-        # Histogram
-        self.user_aggregates[['Total DL (MB)', 'Total UL (MB)', 'Total Data (DL+UL) (MB)']].hist(bins=50, figsize=(15, 5))
+    def analyze_user_engagement(self):
+        engagement_metrics = ['Total Data (MB)', 'Session Count', 'Total Duration (min)']
+        
+        print("User Engagement Statistics:")
+        print(self.user_aggregates[engagement_metrics].describe())
+
+        plt.figure(figsize=(15, 5))
+        for i, metric in enumerate(engagement_metrics, 1):
+            plt.subplot(1, 3, i)
+            self.user_aggregates[metric].hist(bins=50)
+            plt.title(f'Distribution of {metric}')
+            plt.xlabel(metric)
+            plt.ylabel('Frequency')
+        plt.tight_layout()
         plt.show()
 
-        # Box Plot
-        sns.boxplot(data=self.user_aggregates[['Total DL (MB)', 'Total UL (MB)', 'Total Data (DL+UL) (MB)']])
+    def analyze_app_usage(self):
+        app_columns = [col for col in self.user_aggregates.columns if any(app in col for app in ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other'])]
+        app_usage = self.user_aggregates[app_columns].sum().sort_values(ascending=False)
+
+        print("Application Usage Statistics:")
+        print(app_usage)
+
+        plt.figure(figsize=(12, 6))
+        app_usage.plot(kind='bar')
+        plt.title('Total Data Usage by Application')
+        plt.xlabel('Application')
+        plt.ylabel('Total Data Usage (MB)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
         plt.show()
 
-    def scatter_plot(self):
-        # Scatter plots
-        sns.pairplot(self.user_aggregates[['Social Media DL (MB)', 'Google DL (MB)', 'Email DL (MB)', 
-                        'Youtube DL (MB)', 'Netflix DL (MB)', 'Gaming DL (MB)', 
-                        'Other DL (MB)', 'Total Data (DL+UL) (MB)']])
-        plt.show()
-
-    def correlation_matrix(self):
-        correlation_matrix = self.user_aggregates[['Social Media DL (MB)', 'Google DL (MB)', 'Email DL (MB)', 
-                         'Youtube DL (MB)', 'Netflix DL (MB)', 'Gaming DL (MB)', 
-                         'Other DL (MB)', 'Total Data (DL+UL) (MB)']].corr()
-
-        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
-        plt.show()
-
-class PCA_analysis():
-    def __init__(self, user_aggregates):
-        self.user_aggregates = user_aggregates
-        self.traffic_columns = None
-        self.df_traffic = None
-        self.top_10_per_app = None
-        self.cluster_results = None
-
-    def compute_PCA(self):
-        # Standardize the data
-        features = self.user_aggregates[['Total DL (MB)', 'Total UL (MB)', 'Total Data (DL+UL) (MB)']]
+    def perform_pca(self):
+        features = self.user_aggregates[['Total Data (MB)', 'Session Count', 'Total Duration (min)']]
         scaler = StandardScaler()
         scaled_features = scaler.fit_transform(features)
 
-        # Apply PCA
-        pca = PCA(n_components=2)  # Reduce to 2 components for visualization
+        pca = PCA(n_components=2)
         pca_features = pca.fit_transform(scaled_features)
 
-        # Explained variance
-        print(f'Explained variance ratio: {pca.explained_variance_ratio_}')
-        print(f'PCA components: {pca.components_}')
+        print("PCA Results:")
+        print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
 
-        # Plot PCA results
-        plt.scatter(pca_features[:, 0], pca_features[:, 1])
-        plt.xlabel('Principal Component 1')
-        plt.ylabel('Principal Component 2')
-        plt.title('PCA of User Data')
+        plt.figure(figsize=(10, 8))
+        plt.scatter(pca_features[:, 0], pca_features[:, 1], alpha=0.7)
+        plt.xlabel('First Principal Component')
+        plt.ylabel('Second Principal Component')
+        plt.title('PCA of User Engagement Metrics')
+        plt.tight_layout()
         plt.show()
 
+    def top_handsets(self, n=10):
+        return self.df['Handset Type'].value_counts().head(n)
+
+    def top_manufacturers(self, n=3):
+        return self.df['Handset Manufacturer'].value_counts().head(n)
+
+    def top_handsets_per_manufacturer(self, n_manufacturers=3, n_handsets=5):
+        top_manufacturers = self.top_manufacturers(n_manufacturers).index
+        result = {}
+        for manufacturer in top_manufacturers:
+            handsets = self.df[self.df['Handset Manufacturer'] == manufacturer]['Handset Type'].value_counts().head(n_handsets)
+            result[manufacturer] = handsets
+        return result
+
+    def describe_variables(self):
+        return self.df.dtypes
+
+    def segment_users(self):
+        self.user_aggregates['Decile'] = pd.qcut(self.user_aggregates['Total Duration (min)'], q=10, labels=False)
+        return self.user_aggregates.groupby('Decile')['Total Data (MB)'].sum()
+
+    def basic_metrics(self):
+        return self.df.describe()
+
+    def dispersion_parameters(self):
+        numeric_data = self.df.select_dtypes(include=[np.number])
+        return numeric_data.agg(['std', 'var', 'skew', 'kurt'])
+
+    def plot_histograms(self):
+        numeric_data = self.df.select_dtypes(include=[np.number])
+        fig, axes = plt.subplots(nrows=5, ncols=4, figsize=(20, 25))
+        axes = axes.flatten()
+        
+        for i, column in enumerate(numeric_data.columns):
+            if i < 20:  # Limit to 20 plots
+                numeric_data[column].hist(ax=axes[i])
+                axes[i].set_title(column)
+                axes[i].set_xlabel('')
+        
+        plt.tight_layout()
+        return fig
+    
+    def univariate_analysis(self, columns):
+        """
+        Perform univariate analysis on specified columns.
+        
+        Args:
+        columns (list): List of column names to analyze.
+        """
+        # Histogram
+        fig, ax = plt.subplots(figsize=(15, 5))
+        self.user_aggregates[columns].hist(bins=50, ax=ax)
+        plt.title('Histogram of Selected Variables')
+        plt.tight_layout()
+        display(fig)
+        plt.close(fig)
+
+        # Box Plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(data=self.user_aggregates[columns], ax=ax)
+        plt.title('Box Plot of Selected Variables')
+        plt.tight_layout()
+        display(fig)
+        plt.close(fig)
+
+    def bivariate_analysis(self):
+        apps = ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other']
+        total_data = self.df['Total UL (Bytes)'] + self.df['Total DL (Bytes)']
+        
+        fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(20, 20))
+        axes = axes.flatten()
+        
+        for i, app in enumerate(apps):
+            x = self.df[f'{app} DL (Bytes)'] + self.df[f'{app} UL (Bytes)']
+            axes[i].scatter(x, total_data)
+            axes[i].set_xlabel(f'{app} Data')
+            axes[i].set_ylabel('Total Data')
+            axes[i].set_title(f'{app} vs Total Data')
+        
+        plt.tight_layout()
+        return fig
+
+    def correlation_analysis(self):
+        apps = ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other']
+        corr_data = pd.DataFrame()
+        
+        for app in apps:
+            corr_data[app] = self.df[f'{app} DL (Bytes)'] + self.df[f'{app} UL (Bytes)']
+        correlation_matrix = corr_data.corr()
+        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
+        plt.show()
+
+        return corr_data.corr()
+
+    def run_analysis(self):
+        print("Preprocessing data:")
+        self.preprocess_data()
+
+        print("\nCreating user aggregates:")
+        self.create_user_aggregates()
+        
+        print("\nAnalyzing top users:")
+        self.analyze_top_users()
+        
+        print("\nAnalyzing user engagement:")
+        self.analyze_user_engagement()
+        
+        print("\nAnalyzing app usage:")
+        self.analyze_app_usage()
+        
+        print("\nPerforming PCA:")
+        self.perform_pca()
+        
+        print("\nTop 10 Handsets:")
+        display(self.top_handsets())
+        
+        print("\nTop 3 Manufacturers:")
+        display(self.top_manufacturers())
+        
+        print("\nTop Handsets per Manufacturer:")
+        top_handsets_per_manufacturer = self.top_handsets_per_manufacturer()
+        for manufacturer, handsets in top_handsets_per_manufacturer.items():
+            print(f"\n{manufacturer}:")
+            display(handsets)
+        
+        print("\nUser Segmentation:")
+        display(self.segment_users())
+        
+        print("\nBasic Metrics:")
+        display(self.basic_metrics())
+
+        print("\nDescriptive Statistics:")
+        display(self.describe_variables())
+        
+        print("\nDispersion Parameters:")
+        display(self.dispersion_parameters())
+        
+        print("\nPlotting Histograms:")
+        fig = self.plot_histograms()
+        display(fig)
+        plt.close(fig)
+        
+        print("\nBivariate Analysis:")
+        fig = self.bivariate_analysis()
+        display(fig)
+        plt.close(fig)
+        
+        print("\nCorrelation Analysis:")
+        corr_matrix = self.correlation_analysis()
+        display(corr_matrix)
+
+        print("\nUnivariate Analysis:")
+        self.univariate_analysis(['Total DL (MB)', 'Total UL (MB)', 'Total Data (MB)'])
+
+        print("\nAnalyzing Social Media Usage:")
+        social_media_usage = self.analyze_social_media_usage()
+        display(social_media_usage)
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import zscore
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from IPython.display import display
+
+class TelecomDataAnalysis:
+    def __init__(self, df):
+        self.df = df
+        self.user_aggregates = None
+
+    def preprocess_data(self):
+        print("Missing values before handling:")
+        print(self.df.isnull().sum())
+
+        self.handle_missing_values()
+        self.detect_handle_outliers()
+        self.create_user_aggregates()
+
+        print("\nMissing values after handling:")
+        print(self.df.isnull().sum())
+
+    def handle_missing_values(self):
+        # Time and duration data
+        self.df['Start'].interpolate(method='linear', inplace=True)
+        self.df['Start ms'].fillna(self.df['Start ms'].median(), inplace=True)
+        self.df['End'].interpolate(method='linear', inplace=True)
+        self.df['End ms'].fillna(self.df['End ms'].median(), inplace=True)
+        self.df['Dur. (ms)'].fillna(self.df['Dur. (ms)'].median(), inplace=True)
+        self.df['Activity Duration DL (ms)'].fillna(self.df['Activity Duration DL (ms)'].median(), inplace=True)
+        self.df['Activity Duration UL (ms)'].fillna(self.df['Activity Duration UL (ms)'].median(), inplace=True)
+        self.df['Dur. (ms).1'].fillna(self.df['Dur. (ms).1'].median(), inplace=True)
+
+        # IMSI and MSISDN/Number
+        self.df['IMSI'].fillna(self.df['IMSI'].median(), inplace=True)
+        self.df['MSISDN/Number'].fillna(self.df['MSISDN/Number'].mode()[0], inplace=True)
+
+        # IMEI and Last Location Name
+        self.df['IMEI'].fillna(self.df['IMEI'].mode()[0], inplace=True)
+        self.df['Last Location Name'].fillna(self.df['Last Location Name'].mode()[0], inplace=True)
+
+        # RTT and Throughput data
+        self.df['Avg RTT DL (ms)'].fillna(self.df['Avg RTT DL (ms)'].median(), inplace=True)
+        self.df['Avg RTT UL (ms)'].fillna(self.df['Avg RTT UL (ms)'].median(), inplace=True)
+        self.df['Avg Bearer TP DL (kbps)'].fillna(self.df['Avg Bearer TP DL (kbps)'].median(), inplace=True)
+        self.df['Avg Bearer TP UL (kbps)'].fillna(self.df['Avg Bearer TP UL (kbps)'].median(), inplace=True)
+
+        # TCP Retransmission Volumes
+        self.df['TCP DL Retrans. Vol (Bytes)'].fillna(self.df['TCP DL Retrans. Vol (Bytes)'].median(), inplace=True)
+        self.df['TCP UL Retrans. Vol (Bytes)'].fillna(self.df['TCP UL Retrans. Vol (Bytes)'].median(), inplace=True)
+
+        # Percentage data
+        percent_fields = [
+            'DL TP < 50 Kbps (%)', '50 Kbps < DL TP < 250 Kbps (%)', '250 Kbps < DL TP < 1 Mbps (%)', 'DL TP > 1 Mbps (%)',
+            'UL TP < 10 Kbps (%)', '10 Kbps < UL TP < 50 Kbps (%)', '50 Kbps < UL TP < 300 Kbps (%)', 'UL TP > 300 Kbps (%)'
+        ]
+        for field in percent_fields:
+            self.df[field].fillna(self.df[field].mean(), inplace=True)
+
+        # HTTP DL and UL data
+        self.df['HTTP DL (Bytes)'].fillna(self.df['HTTP DL (Bytes)'].median(), inplace=True)
+        self.df['HTTP UL (Bytes)'].fillna(self.df['HTTP UL (Bytes)'].median(), inplace=True)
+
+        # Handset information
+        self.df.dropna(subset=['Handset Manufacturer', 'Handset Type'], inplace=True)
+
+        # NB of sec data
+        nb_sec_fields = [
+            'Nb of sec with 125000B < Vol DL', 'Nb of sec with 1250B < Vol UL < 6250B', 'Nb of sec with 31250B < Vol DL < 125000B',
+            'Nb of sec with 37500B < Vol UL', 'Nb of sec with 6250B < Vol DL < 31250B', 'Nb of sec with 6250B < Vol UL < 37500B',
+            'Nb of sec with Vol DL < 6250B', 'Nb of sec with Vol UL < 1250B'
+        ]
+        for field in nb_sec_fields:
+            self.df[field].fillna(self.df[field].median(), inplace=True)
+
+        # Total Bytes data
+        self.df['Total UL (Bytes)'].fillna(self.df['Total UL (Bytes)'].median(), inplace=True)
+        self.df['Total DL (Bytes)'].fillna(self.df['Total DL (Bytes)'].median(), inplace=True)
+
+    def detect_handle_outliers(self):
+        numeric_columns = self.df.select_dtypes(include=[np.number]).columns
+        z_scores = np.abs(zscore(self.df[numeric_columns]))
+        outliers = (z_scores > 3)
+        
+        for col in numeric_columns:
+            self.df.loc[outliers[col], col] = self.df[col].mean()
+
+    def create_user_aggregates(self):
+        self.df['Total Data (Bytes)'] = self.df['Total DL (Bytes)'] + self.df['Total UL (Bytes)']
+        
+        self.user_aggregates = self.df.groupby('MSISDN/Number').agg({
+            'Bearer Id': 'count',
+            'Dur. (ms)': 'sum',
+            'Total Data (Bytes)': 'sum',
+            'Total DL (Bytes)': 'sum',
+            'Total UL (Bytes)': 'sum',
+            'Social Media DL (Bytes)': 'sum',
+            'Social Media UL (Bytes)': 'sum',
+            'Google DL (Bytes)': 'sum',
+            'Google UL (Bytes)': 'sum',
+            'Email DL (Bytes)': 'sum',
+            'Email UL (Bytes)': 'sum',
+            'Youtube DL (Bytes)': 'sum',
+            'Youtube UL (Bytes)': 'sum',
+            'Netflix DL (Bytes)': 'sum',
+            'Netflix UL (Bytes)': 'sum',
+            'Gaming DL (Bytes)': 'sum',
+            'Gaming UL (Bytes)': 'sum',
+            'Other DL (Bytes)': 'sum',
+            'Other UL (Bytes)': 'sum'
+        }).reset_index()
+
+        self.user_aggregates.rename(columns={
+            'Bearer Id': 'Session Count',
+            'Dur. (ms)': 'Total Duration (ms)'
+        }, inplace=True)
+
+        # Convert bytes to megabytes
+        bytes_columns = [col for col in self.user_aggregates.columns if 'Bytes' in col]
+        for col in bytes_columns:
+            new_col_name = col.replace('Bytes', 'MB')
+            self.user_aggregates[new_col_name] = self.user_aggregates[col] / (1024 * 1024)
+            self.user_aggregates.drop(col, axis=1, inplace=True)
+
+        # Convert duration to minutes
+        self.user_aggregates['Total Duration (min)'] = self.user_aggregates['Total Duration (ms)'] / (1000 * 60)
+        self.user_aggregates.drop('Total Duration (ms)', axis=1, inplace=True)
+        # Add Total Data (DL+UL) column
+        self.user_aggregates['Total Data (MB)'] = self.user_aggregates['Total DL (MB)'] + self.user_aggregates['Total UL (MB)']
+
+    def analyze_top_users(self):
+        print("Top 10 users by Total Data:")
+        print(self.user_aggregates.nlargest(10, 'Total Data (MB)')[['MSISDN/Number', 'Total Data (MB)']])
+
+        print("\nTop 10 users by Session Count:")
+        print(self.user_aggregates.nlargest(10, 'Session Count')[['MSISDN/Number', 'Session Count']])
+
+        print("\nTop 10 users by Total Duration:")
+        print(self.user_aggregates.nlargest(10, 'Total Duration (min)')[['MSISDN/Number', 'Total Duration (min)']])
+
+    def analyze_user_engagement(self):
+        engagement_metrics = ['Total Data (MB)', 'Session Count', 'Total Duration (min)']
+        
+        print("User Engagement Statistics:")
+        print(self.user_aggregates[engagement_metrics].describe())
+
+        plt.figure(figsize=(15, 5))
+        for i, metric in enumerate(engagement_metrics, 1):
+            plt.subplot(1, 3, i)
+            self.user_aggregates[metric].hist(bins=50)
+            plt.title(f'Distribution of {metric}')
+            plt.xlabel(metric)
+            plt.ylabel('Frequency')
+        plt.tight_layout()
+        plt.show()
+
+    def analyze_app_usage(self):
+        app_columns = [col for col in self.user_aggregates.columns if any(app in col for app in ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other'])]
+        app_usage = self.user_aggregates[app_columns].sum().sort_values(ascending=False)
+
+        print("Application Usage Statistics:")
+        print(app_usage)
+
+        plt.figure(figsize=(12, 6))
+        app_usage.plot(kind='bar')
+        plt.title('Total Data Usage by Application')
+        plt.xlabel('Application')
+        plt.ylabel('Total Data Usage (MB)')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
+
+    def perform_pca(self):
+        features = self.user_aggregates[['Total Data (MB)', 'Session Count', 'Total Duration (min)']]
+        scaler = StandardScaler()
+        scaled_features = scaler.fit_transform(features)
+
+        pca = PCA(n_components=2)
+        pca_features = pca.fit_transform(scaled_features)
+
+        print("PCA Results:")
+        print(f"Explained variance ratio: {pca.explained_variance_ratio_}")
+
+        plt.figure(figsize=(10, 8))
+        plt.scatter(pca_features[:, 0], pca_features[:, 1], alpha=0.7)
+        plt.xlabel('First Principal Component')
+        plt.ylabel('Second Principal Component')
+        plt.title('PCA of User Engagement Metrics')
+        plt.tight_layout()
+        plt.show()
+
+    def top_handsets(self, n=10):
+        return self.df['Handset Type'].value_counts().head(n)
+
+    def top_manufacturers(self, n=3):
+        return self.df['Handset Manufacturer'].value_counts().head(n)
+
+    def top_handsets_per_manufacturer(self, n_manufacturers=3, n_handsets=5):
+        top_manufacturers = self.top_manufacturers(n_manufacturers).index
+        result = {}
+        for manufacturer in top_manufacturers:
+            handsets = self.df[self.df['Handset Manufacturer'] == manufacturer]['Handset Type'].value_counts().head(n_handsets)
+            result[manufacturer] = handsets
+        return result
+
+    def describe_variables(self):
+        return self.df.dtypes
+
+    def segment_users(self):
+        self.user_aggregates['Decile'] = pd.qcut(self.user_aggregates['Total Duration (min)'], q=10, labels=False)
+        return self.user_aggregates.groupby('Decile')['Total Data (MB)'].sum()
+
+    def basic_metrics(self):
+        return self.df.describe()
+
+    def dispersion_parameters(self):
+        numeric_data = self.df.select_dtypes(include=[np.number])
+        return numeric_data.agg(['std', 'var', 'skew', 'kurt'])
+
+    def plot_histograms(self):
+        numeric_data = self.df.select_dtypes(include=[np.number])
+        fig, axes = plt.subplots(nrows=5, ncols=4, figsize=(20, 25))
+        axes = axes.flatten()
+        
+        for i, column in enumerate(numeric_data.columns):
+            if i < 20:  # Limit to 20 plots
+                numeric_data[column].hist(ax=axes[i])
+                axes[i].set_title(column)
+                axes[i].set_xlabel('')
+        
+        plt.tight_layout()
+        return fig
+    
+    def univariate_analysis(self, columns):
+        """
+        Perform univariate analysis on specified columns.
+        
+        Args:
+        columns (list): List of column names to analyze.
+        """
+        # Histogram
+        fig, ax = plt.subplots(figsize=(15, 5))
+        self.user_aggregates[columns].hist(bins=50, ax=ax)
+        plt.title('Histogram of Selected Variables')
+        plt.tight_layout()
+        display(fig)
+        plt.close(fig)
+
+        # Box Plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(data=self.user_aggregates[columns], ax=ax)
+        plt.title('Box Plot of Selected Variables')
+        plt.tight_layout()
+        display(fig)
+        plt.close(fig)
+
+    def bivariate_analysis(self):
+        apps = ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other']
+        total_data = self.df['Total UL (Bytes)'] + self.df['Total DL (Bytes)']
+        
+        fig, axes = plt.subplots(nrows=3, ncols=3, figsize=(20, 20))
+        axes = axes.flatten()
+        
+        for i, app in enumerate(apps):
+            x = self.df[f'{app} DL (Bytes)'] + self.df[f'{app} UL (Bytes)']
+            axes[i].scatter(x, total_data)
+            axes[i].set_xlabel(f'{app} Data')
+            axes[i].set_ylabel('Total Data')
+            axes[i].set_title(f'{app} vs Total Data')
+        
+        plt.tight_layout()
+        return fig
+
+    def correlation_analysis(self):
+        apps = ['Social Media', 'Google', 'Email', 'Youtube', 'Netflix', 'Gaming', 'Other']
+        corr_data = pd.DataFrame()
+        
+        for app in apps:
+            corr_data[app] = self.df[f'{app} DL (Bytes)'] + self.df[f'{app} UL (Bytes)']
+        correlation_matrix = corr_data.corr()
+        sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
+        plt.show()
+
+        return corr_data.corr()
+
+    def run_analysis(self):
+        print("Preprocessing data:")
+        self.preprocess_data()
+
+        print("\nCreating user aggregates:")
+        self.create_user_aggregates()
+        
+        print("\nAnalyzing top users:")
+        self.analyze_top_users()
+        
+        print("\nAnalyzing user engagement:")
+        self.analyze_user_engagement()
+        
+        print("\nAnalyzing app usage:")
+        self.analyze_app_usage()
+        
+        print("\nPerforming PCA:")
+        self.perform_pca()
+        
+        print("\nTop 10 Handsets:")
+        display(self.top_handsets())
+        
+        print("\nTop 3 Manufacturers:")
+        display(self.top_manufacturers())
+        
+        print("\nTop Handsets per Manufacturer:")
+        top_handsets_per_manufacturer = self.top_handsets_per_manufacturer()
+        for manufacturer, handsets in top_handsets_per_manufacturer.items():
+            print(f"\n{manufacturer}:")
+            display(handsets)
+        
+        print("\nUser Segmentation:")
+        display(self.segment_users())
+        
+        print("\nBasic Metrics:")
+        display(self.basic_metrics())
+
+        print("\nDescriptive Statistics:")
+        display(self.describe_variables())
+        
+        print("\nDispersion Parameters:")
+        display(self.dispersion_parameters())
+        
+        print("\nPlotting Histograms:")
+        fig = self.plot_histograms()
+        display(fig)
+        plt.close(fig)
+        
+        print("\nBivariate Analysis:")
+        fig = self.bivariate_analysis()
+        display(fig)
+        plt.close(fig)
+        
+        print("\nCorrelation Analysis:")
+        corr_matrix = self.correlation_analysis()
+        display(corr_matrix)
+
+        print("\nUnivariate Analysis:")
+        self.univariate_analysis(['Total DL (MB)', 'Total UL (MB)', 'Total Data (MB)'])
+
+        print("\nAnalyzing Social Media Usage:")
+        social_media_usage = self.analyze_social_media_usage()
+        display(social_media_usage)
 

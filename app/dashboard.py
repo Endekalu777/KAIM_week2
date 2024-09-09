@@ -5,7 +5,7 @@ import io
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join('..')))
-from scripts.experience_analytics import TelecomAnalyzer 
+from KAIM_week2.scripts.user_satisfaction import TelecomAnalyzer 
 
 # Set page config
 st.set_page_config(page_title="Telecom Network Analytics Dashboard", layout="wide")

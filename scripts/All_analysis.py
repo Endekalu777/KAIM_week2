@@ -618,7 +618,6 @@ class UserSatisfactionAnalysis:
             mlflow.log_metric("mse", self.mse)
             mlflow.log_metric("r2", self.r2)
             mlflow.sklearn.log_model(self.model, "linear_regression_model")
-            self.data.to_csv("user_data_with_scores.csv", index=False)
             mlflow.log_artifact("user_data_with_scores.csv")
 
     def analysis_run(self):

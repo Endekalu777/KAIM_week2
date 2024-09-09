@@ -1,123 +1,120 @@
-import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-import io
 import sys
 import os
 sys.path.append(os.path.abspath(os.path.join('..')))
-from scripts.experience_analytics import TelecomAnalyzer 
+import streamlit as st
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+from scipy.spatial.distance import cdist
+from IPython.display import display
+import mlflow
+import mlflow.sklearn
+from scripts.All_analysis import UserOverviewAnalysis, UserEngagement, UserExperience, UserSatisfactionAnalysis
 
-# Set page config
-st.set_page_config(page_title="Telecom Network Analytics Dashboard", layout="wide")
 
-# Title
-st.title("Telecom Network Analytics Dashboard")
-
-# Read the CSV file
-df = pd.read_csv("../data/cleaned_data.csv")
-
-# Initialize the TelecomAnalyzer
-analyzer = TelecomAnalyzer(df)
-analyzer.preprocess_data()
-
-# Sidebar for navigation
-analysis_option = st.sidebar.selectbox(
-    "Choose an analysis",
-    ["Top Users", "Metric Distributions", "Handset Types", "PCA", "Clustering", "Throughput by Handset"]
+st.set_page_config(
+    page_title="Telecom Data Dashboard",
+    page_icon=":bar_chart:",
+    layout="wide"
 )
 
-if analysis_option == "Top Users":
-    st.header("Top Users Analysis")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.subheader("Top 10 by TCP Retransmission")
-        st.dataframe(analyzer.customer_metrics.nlargest(10, 'avg_tcp_retrans'))
-    
-    with col2:
-        st.subheader("Top 10 by RTT")
-        st.dataframe(analyzer.customer_metrics.nlargest(10, 'avg_rtt'))
-    
-    with col3:
-        st.subheader("Top 10 by Throughput")
-        st.dataframe(analyzer.customer_metrics.nlargest(10, 'avg_throughput'))
+# Load your data
+data = pd.read_csv("../data/cleaned_data.csv")
 
-elif analysis_option == "Metric Distributions":
-    st.header("Metric Distributions")
-    
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(15, 5))
-    
-    ax1.hist(analyzer.customer_metrics['avg_tcp_retrans'], bins=50)
-    ax1.set_title('TCP Retransmission Distribution')
-    
-    ax2.hist(analyzer.customer_metrics['avg_rtt'], bins=50)
-    ax2.set_title('RTT Distribution')
-    
-    ax3.hist(analyzer.customer_metrics['avg_throughput'], bins=50)
-    ax3.set_title('Throughput Distribution')
-    
-    plt.tight_layout()
-    st.pyplot(fig)
+# Create sidebar options
+analysis_type = st.sidebar.selectbox("Select Analysis Type", ["User Overview", "User Engagement", "User Experience", "User Satisfaction"])
 
-elif analysis_option == "Handset Types":
-    st.header("Handset Types Analysis")
-    
-    handset_counts = analyzer.customer_metrics['Handset Type'].value_counts()
-    
-    st.subheader("Top 10 Handset Types")
-    st.dataframe(handset_counts.head(10))
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    handset_counts.head(10).plot(kind='bar', ax=ax)
-    ax.set_title('Top 10 Handset Types')
-    ax.set_xlabel('Handset Type')
-    ax.set_ylabel('Count')
-    plt.tight_layout()
-    st.pyplot(fig)
+# Create a placeholder for the main content
+main_content = st.empty()
 
-elif analysis_option == "PCA":
-    st.header("Principal Component Analysis")
-    
-    analyzer.perform_pca()
-    
+if analysis_type == "User Overview":
+    st.title("Telecom User Overview")
+
+    # User Overview analysis
+    analyzer = UserOverviewAnalysis(data)
+    analyzer.run_analysis()
+
+    # Display results
+    st.write("**Top Users**")
+    st.dataframe(analyzer.user_aggregates.nlargest(10, 'Total Data (MB)')[['MSISDN/Number', 'Total Data (MB)']])
+    st.write("**Top Handsets**")
+    st.dataframe(analyzer.top_handsets())
+    st.write("**Top Manufacturers**")
+    st.dataframe(analyzer.top_manufacturers())
+
+elif analysis_type == "User Engagement":
+    st.title("Telecom User Engagement Analysis")
+
+    # User Engagement analysis
+    analyzer = UserEngagement(data)
+    analyzer.run_analysis()
+
+    # Display results
+    st.write("**Customer Metrics**")
+    st.dataframe(analyzer.customer_metrics)
+    st.write("**Top Users by Session Frequency**")
+    st.dataframe(analyzer.customer_metrics.nlargest(10, 'session_frequency'))
+    st.write("**Top Users by Total Duration**")
+    st.dataframe(analyzer.customer_metrics.nlargest(10, 'total_duration'))
+    st.write("**Top Users by Total Traffic**")
+    st.dataframe(analyzer.customer_metrics.nlargest(10, 'total_traffic'))
+
+    # PCA Plot
     fig, ax = plt.subplots(figsize=(10, 8))
     ax.scatter(analyzer.pca_results[:, 0], analyzer.pca_results[:, 1])
     ax.set_title('PCA of Customer Metrics')
     ax.set_xlabel('First Principal Component')
     ax.set_ylabel('Second Principal Component')
     st.pyplot(fig)
-    
-    st.write(f"Explained variance ratio: {analyzer.pca.explained_variance_ratio_}")
 
-elif analysis_option == "Clustering":
-    st.header("Clustering Analysis")
-    
-    n_clusters = st.slider("Select number of clusters", 2, 10, 3)
-    cluster_stats = analyzer.perform_clustering(n_clusters=n_clusters)
-    
-    st.subheader("Cluster Statistics")
-    st.dataframe(cluster_stats)
-    
+elif analysis_type == "User Experience":
+    st.title("Telecom User Experience Analysis")
+
+    # User Experience analysis
+    analyzer = UserExperience(data)
+    analyzer.run_analysis()
+
+    # Display results
+    st.write("**Customer Metrics**")
+    st.dataframe(analyzer.customer_metrics)
+    st.write("**Top Users by Average TCP Retransmission**")
+    st.dataframe(analyzer.customer_metrics.nlargest(10, 'avg_tcp_retrans'))
+    st.write("**Top Users by Average RTT**")
+    st.dataframe(analyzer.customer_metrics.nlargest(10, 'avg_rtt'))
+    st.write("**Top Users by Average Throughput**")
+    st.dataframe(analyzer.customer_metrics.nlargest(10, 'avg_throughput'))
+
+    # PCA Plot
+    fig, ax = plt.subplots(figsize=(10, 8))
+    ax.scatter(analyzer.pca_results[:, 0], analyzer.pca_results[:, 1])
+    ax.set_title('PCA of Customer Metrics')
+    ax.set_xlabel('First Principal Component')
+    ax.set_ylabel('Second Principal Component')
+    st.pyplot(fig)
+
+    # Cluster Boxplot
     fig = analyzer.get_cluster_boxplot()
     st.pyplot(fig)
-    
-    st.subheader("Elbow Method for Optimal k")
-    elbow_fig = analyzer.optimize_k(10)
-    st.pyplot(elbow_fig)
 
-elif analysis_option == "Throughput by Handset":
-    st.header("Throughput Analysis by Handset Type")
-    
-    throughput_by_handset = analyzer.customer_metrics.groupby('Handset Type')['avg_throughput'].mean().sort_values(ascending=False)
-    
-    st.subheader("Average Throughput by Handset Type (Top 10)")
-    st.dataframe(throughput_by_handset.head(10))
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    throughput_by_handset.head(10).plot(kind='bar', ax=ax)
-    ax.set_title('Average Throughput by Handset Type (Top 10)')
-    ax.set_xlabel('Handset Type')
-    ax.set_ylabel('Average Throughput (kbps)')
-    plt.tight_layout()
-    st.pyplot(fig)
+elif analysis_type == "User Satisfaction":
+    st.title("Telecom User Satisfaction Analysis")
+
+    # User Satisfaction analysis
+    analyzer = UserSatisfactionAnalysis(data)
+    analyzer.analysis_run()
+
+    # Display results
+    st.write("**Top 10 Satisfied Customers**")
+    st.dataframe(analyzer.get_top_satisfied_customers())
+    st.write("**Cluster Averages**")
+    st.dataframe(analyzer.get_cluster_averages())
+
+    # MLflow Tracking
+    with st.expander("MLflow Tracking"):
+        st.write("Model metrics and artifacts are tracked in MLflow.")
+        st.write("MSE:", analyzer.mse)
+        st.write("R-squared:", analyzer.r2)

@@ -15,8 +15,6 @@ from sqlalchemy import create_engine
 import mlflow
 import mlflow.sklearn
 
-
-
 class UserOverviewAnalysis:
     def __init__(self, df):
         self.df = df
@@ -222,8 +220,6 @@ class UserOverviewAnalysis:
         return corr_data.corr()
 
     def run_analysis(self):
-        print("Preprocessing data:")
-        self.preprocess_data()
 
         print("\nCreating user aggregates:")
         self.create_user_aggregates()
@@ -614,9 +610,6 @@ class UserSatisfactionAnalysis:
             'satisfaction_score': 'mean'
         })
 
-    def export_to_mysql(self, connection_string):
-        engine = create_engine(connection_string)
-        self.data[['Bearer Id', 'engagement_score', 'experience_score', 'satisfaction_score']].to_sql('user_satisfaction', engine, if_exists='replace', index=False)
 
     def track_model(self):
         with mlflow.start_run():
@@ -638,6 +631,5 @@ class UserSatisfactionAnalysis:
         self.cluster_scores()
         print("\nCluster Averages:")
         print(self.get_cluster_averages())
-        self.export_to_mysql('mysql://username:password@localhost/database_name')
         self.track_model()
         print("\nAnalysis complete. Data exported to MySQL and model tracked with MLflow.")

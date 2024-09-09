@@ -1,6 +1,5 @@
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join('..')))
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -13,7 +12,13 @@ from scipy.spatial.distance import cdist
 from IPython.display import display
 import mlflow
 import mlflow.sklearn
-from scripts.All_analysis import UserOverviewAnalysis, UserEngagement, UserExperience, UserSatisfactionAnalysis
+
+# Adjust the path to include the parent directory of `scripts`
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts')))
+
+# Now you should be able to import from `scripts.all_analysis`
+from all_analysis import UserOverviewAnalysis, UserEngagement, UserExperience, UserSatisfactionAnalysis
+
 
 
 st.set_page_config(
@@ -23,7 +28,7 @@ st.set_page_config(
 )
 
 # Load your data
-data = pd.read_csv("../data/cleaned_data.csv")
+data = pd.read_csv("data/cleaned_data.csv")
 
 # Create sidebar options
 analysis_type = st.sidebar.selectbox("Select Analysis Type", ["User Overview", "User Engagement", "User Experience", "User Satisfaction"])

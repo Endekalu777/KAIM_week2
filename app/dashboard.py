@@ -68,13 +68,6 @@ elif analysis_type == "User Engagement":
     st.write("**Top Users by Total Traffic**")
     st.dataframe(analyzer.customer_metrics.nlargest(10, 'total_traffic'))
 
-    # PCA Plot
-    fig, ax = plt.subplots(figsize=(10, 8))
-    ax.scatter(analyzer.pca_results[:, 0], analyzer.pca_results[:, 1])
-    ax.set_title('PCA of Customer Metrics')
-    ax.set_xlabel('First Principal Component')
-    ax.set_ylabel('Second Principal Component')
-    st.pyplot(fig)
 
 elif analysis_type == "User Experience":
     st.title("Telecom User Experience Analysis")

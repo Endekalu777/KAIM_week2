@@ -1,9 +1,11 @@
 pandas
 numpy
+scikit-learn
+SQLAlchemy
+mlflow
 matplotlib
 seaborn
 scipy
-scikit-learn
 ipython
 python-dotenv
 psycopg2

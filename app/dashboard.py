@@ -58,9 +58,6 @@ elif analysis_type == "User Engagement":
     analyzer = UserEngagement(data)
     analyzer.run_analysis()
 
-    # Display results
-    st.write("**Customer Metrics**")
-    st.dataframe(analyzer.customer_metrics)
     st.write("**Top Users by Session Frequency**")
     st.dataframe(analyzer.customer_metrics.nlargest(10, 'session_frequency'))
     st.write("**Top Users by Total Duration**")

@@ -25,5 +25,3 @@ Thumbs.db
 # Ignore IDE specific files if any
 .idea/
 .vscode/
-
-data/

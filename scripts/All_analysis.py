@@ -631,4 +631,3 @@ class UserSatisfactionAnalysis:
         print("\nCluster Averages:")
         print(self.get_cluster_averages())
         self.track_model()
-        print("\nAnalysis complete. Data exported to MySQL and model tracked with MLflow.")

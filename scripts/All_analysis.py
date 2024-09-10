@@ -610,16 +610,6 @@ class UserSatisfactionAnalysis:
             'satisfaction_score': 'mean'
         })
 
-
-    def track_model(self):
-        with mlflow.start_run():
-            mlflow.log_param("n_clusters", 2)
-            mlflow.log_param("random_state", 42)
-            mlflow.log_metric("mse", self.mse)
-            mlflow.log_metric("r2", self.r2)
-            mlflow.sklearn.log_model(self.model, "linear_regression_model")
-            mlflow.log_artifact("user_data_with_scores.csv")
-
     def analysis_run(self):
         self.preprocess_data()
         self.calculate_scores()
@@ -630,4 +620,3 @@ class UserSatisfactionAnalysis:
         self.cluster_scores()
         print("\nCluster Averages:")
         print(self.get_cluster_averages())
-        self.track_model()

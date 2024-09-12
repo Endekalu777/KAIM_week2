@@ -8,4 +8,8 @@ seaborn
 scipy
 ipython
 python-dotenv
-psycopg2
+psycopg2-binary
+scipy
+mlflow
+ipython
+streamlit

@@ -2,3 +2,5 @@ mlruns/
 notebooks/
 week2/
 .gitignore
+scripts/
+!scripts/All_analysis.py
